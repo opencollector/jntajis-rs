@@ -1,0 +1,50 @@
+[package]
+name = "jntajis"
+version = "0.0.0"
+edition = "2024"
+authors = ["Open Collector, Inc."]
+description = "A Rust port of jntajis-python providing character transliteration functionality for Japanese text processing"
+license = "BSD-3-Clause"
+readme = "README.md"
+homepage = "https://github.com/opencollector/jntajis-rs"
+repository = "https://github.com/opencollector/jntajis-rs"
+documentation = "https://docs.rs/jntajis"
+keywords = ["japanese", "character", "transliteration", "jis", "unicode"]
+categories = ["text-processing", "internationalization"]
+
+[dependencies]
+lz4_flex = "0.12.0"
+rkyv = { version = "0.8", features = ["alloc", "bytecheck"] }
+serde = { version = "1.0", features = ["derive"] }
+
+anyhow = { version = "1.0", optional = true }
+calamine = { version = "0.28.0", optional = true }
+itertools = { version = "0.14.0", optional = true }
+lazy_static = { version = "1.5.0", optional = true }
+minijinja = { version = "2.11.0", optional = true }
+regex = { version = "1.11.1", optional = true }
+serde_json = { version = "1.0.140", optional = true }
+strum = { version = "0.27.1", features = ["derive"], optional = true }
+num-traits = "0.2.19"
+thiserror = "2.0.18"
+
+[features]
+codegen = [
+    "dep:anyhow",
+    "dep:calamine",
+    "dep:itertools",
+    "dep:lazy_static",
+    "dep:minijinja",
+    "dep:regex",
+    "dep:serde_json",
+    "dep:strum",
+]
+
+[[bin]]
+name = "jntajis-codegen"
+path = "src/codegen/main.rs"
+required-features = ["codegen"]
+
+[dev-dependencies]
+itertools = "0.14.0"
+serde_json = "1.0.140"
