@@ -1,7 +1,8 @@
 use std::ptr::NonNull;
 
-use super::array_vec::ArrayVecWithLen;
+use crate::array_vec::ArrayVecWithLen;
 
+/// A vector of `NonNull<T>` that stores up to `CAP` pointers inline, spilling to the heap beyond that.
 #[derive(Clone, Debug)]
 pub enum InplacePtrVec<T: Clone, const CAP: usize> {
     Inplace(ArrayVecWithLen<NonNull<T>, CAP>),
@@ -15,10 +16,12 @@ impl<T: Clone, const CAP: usize> Default for InplacePtrVec<T, CAP> {
 }
 
 impl<T: Clone, const CAP: usize> InplacePtrVec<T, CAP> {
+    /// Creates an empty inline-mode vector.
     pub fn new() -> Self {
         InplacePtrVec::Inplace(ArrayVecWithLen::new())
     }
 
+    /// Creates a vector with the given capacity hint; uses heap if `capacity > CAP`.
     pub fn with_capacity(capacity: usize) -> Self {
         if capacity <= CAP {
             InplacePtrVec::Inplace(ArrayVecWithLen::new())
@@ -27,6 +30,7 @@ impl<T: Clone, const CAP: usize> InplacePtrVec<T, CAP> {
         }
     }
 
+    /// Appends a pointer, spilling to the heap if inline capacity is exceeded.
     pub fn push(&mut self, value: NonNull<T>) {
         match self {
             InplacePtrVec::Inplace(vec) => {
@@ -43,6 +47,7 @@ impl<T: Clone, const CAP: usize> InplacePtrVec<T, CAP> {
         }
     }
 
+    /// Returns the number of stored pointers.
     pub fn len(&self) -> usize {
         match self {
             InplacePtrVec::Inplace(vec) => vec.len(),
@@ -50,6 +55,7 @@ impl<T: Clone, const CAP: usize> InplacePtrVec<T, CAP> {
         }
     }
 
+    /// Returns `true` if the vector is empty.
     pub fn is_empty(&self) -> bool {
         match self {
             InplacePtrVec::Inplace(vec) => vec.is_empty(),
@@ -57,6 +63,7 @@ impl<T: Clone, const CAP: usize> InplacePtrVec<T, CAP> {
         }
     }
 
+    /// Returns the stored pointers as a slice.
     pub fn as_slice(&self) -> &[NonNull<T>] {
         match self {
             InplacePtrVec::Inplace(vec) => &vec[..],
@@ -65,6 +72,7 @@ impl<T: Clone, const CAP: usize> InplacePtrVec<T, CAP> {
     }
 }
 
+/// Owned iterator over an [`InplacePtrVec`].
 pub struct InplacePtrVecIntoIter<T: Clone, const CAP: usize>(InplacePtrVec<T, CAP>, usize);
 
 impl<T: Clone, const CAP: usize> Iterator for InplacePtrVecIntoIter<T, CAP> {
@@ -94,6 +102,7 @@ impl<T: Clone, const CAP: usize> Iterator for InplacePtrVecIntoIter<T, CAP> {
     }
 }
 
+/// Borrowing iterator over an [`InplacePtrVec`].
 pub struct InplacePtrVecPtrIter<'a, T: Clone + 'a, const CAP: usize>(
     &'a InplacePtrVec<T, CAP>,
     usize,

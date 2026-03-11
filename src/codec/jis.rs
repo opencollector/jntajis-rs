@@ -1,11 +1,13 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 
-use crate::codec::array_vec::PackedU8Vec;
+use crate::array_vec;
+use crate::array_vec::PackedU8Vec;
 
 use super::error::{EncoderResult, TransliterationError};
-use super::{array_vec, common_models, generated, inmemory_models};
+use super::{common_models, generated, inmemory_models};
 
+/// Iterator that converts Unicode characters to JNTA mappings, handling multi-codepoint sequences.
 pub struct UniToJNTAMappingIterator<'a, I>
 where
     I: Iterator<Item = char>,
@@ -17,6 +19,7 @@ where
     _marker: std::marker::PhantomData<&'a ()>,
 }
 
+/// Extension trait for iterators of [`MenKuTen`](common_models::MenKuTen) to convert to ISO-2022 byte sequences.
 pub trait MenKuTenIteratorMixin: Iterator<Item = common_models::MenKuTen> + Sized {
     fn to_iso2022(
         self,
@@ -25,6 +28,7 @@ pub trait MenKuTenIteratorMixin: Iterator<Item = common_models::MenKuTen> + Size
     ) -> impl Iterator<Item = Result<array_vec::PackedU8Vec, EncoderResult>>;
 }
 
+/// Extension trait for iterators of `Result<MenKuTen, EncoderResult>` to convert to ISO-2022 byte sequences.
 pub trait MenKuTenResultIteratorMixin:
     Iterator<Item = Result<common_models::MenKuTen, EncoderResult>> + Sized
 {
@@ -57,6 +61,7 @@ impl<T: Iterator<Item = Result<common_models::MenKuTen, EncoderResult>>> MenKuTe
     }
 }
 
+/// Extension trait for iterators of JNTA mapping references.
 pub trait UniToJNTAMappingIteratorMixin<'a>:
     Iterator<Item = &'a common_models::JNTAMapping> + Sized
 {
@@ -72,6 +77,7 @@ pub trait UniToJNTAMappingIteratorMixin<'a>:
     }
 }
 
+/// Extension trait for iterators of `Result<&JNTAMapping, EncoderResult>`.
 pub trait UniToJNTAMappingResultIteratorMixin<'a>:
     Iterator<Item = Result<&'a common_models::JNTAMapping, EncoderResult>> + Sized
 {
@@ -247,6 +253,7 @@ where
     }
 }
 
+/// Converts a Unicode character sequence into an iterator of JNTA mapping results.
 pub fn convert_uni_to_jis<'a, 'b>(
     us: impl IntoIterator<Item = char> + 'a,
 ) -> impl Iterator<Item = Result<&'b common_models::JNTAMapping, EncoderResult>> + 'b
@@ -262,6 +269,7 @@ where
     }
 }
 
+/// Iterator that transliterates JIS X 0213-specific characters to their JIS X 0208 equivalents.
 pub struct JISX0213TransliteratingIterator<'a, I>
 where
     I: Iterator<Item = char>,
@@ -315,6 +323,9 @@ where
     }
 }
 
+/// Transliterates JIS X 0213 characters to their JIS X 0208 equivalents.
+///
+/// When `passthrough_under_7f` is `true`, ASCII characters (< U+007F) are passed through unchanged.
 pub fn transliterate_jisx0213<'a, 'b>(
     us: impl IntoIterator<Item = char> + 'a,
     passthrough_under_7f: bool,

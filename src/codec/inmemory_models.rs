@@ -4,6 +4,7 @@ use std::ptr::NonNull;
 use super::common_models::{JNTAMapping, MJCode, MenKuTen, UIVSPair};
 use super::inplace_ptr_vec::InplacePtrVec;
 
+/// Maps a contiguous Unicode range to JNTA mappings (in-memory layout with pointers).
 #[derive(Clone, Debug)]
 pub struct URangeToJISMapping {
     pub(crate) start: u32,
@@ -11,11 +12,13 @@ pub struct URangeToJISMapping {
 }
 
 impl URangeToJISMapping {
+    /// Returns the starting Unicode codepoint for this range.
     #[allow(dead_code)]
     pub fn start(&self) -> u32 {
         self.start
     }
 
+    /// Returns the JNTA mapping slice for codepoints in this range.
     pub fn jis(&self) -> &[Option<&JNTAMapping>] {
         unsafe {
             std::mem::transmute::<&[Option<NonNull<JNTAMapping>>], &[Option<&JNTAMapping>]>(
@@ -25,6 +28,7 @@ impl URangeToJISMapping {
     }
 }
 
+/// An in-memory MJ character mapping (MJ code to Unicode+IVS pairs).
 #[derive(Clone, Debug)]
 pub struct MJMapping {
     pub(crate) mj: MJCode,
@@ -32,15 +36,18 @@ pub struct MJMapping {
 }
 
 impl MJMapping {
+    /// Returns the MJ code for this mapping.
     pub fn mj(&self) -> MJCode {
         self.mj
     }
 
+    /// Returns the Unicode+IVS pairs associated with this MJ code.
     pub fn v(&self) -> &[UIVSPair] {
         unsafe { self.v.as_ref() }
     }
 }
 
+/// Maps a contiguous Unicode range to MJ mappings (in-memory layout with pointers).
 #[derive(Clone, Debug)]
 pub struct URangeToMJMappings {
     pub(crate) start: u32,
@@ -48,16 +55,19 @@ pub struct URangeToMJMappings {
 }
 
 impl URangeToMJMappings {
+    /// Returns the starting Unicode codepoint for this range.
     #[allow(dead_code)]
     pub fn start(&self) -> u32 {
         self.start
     }
 
+    /// Returns the MJ mapping sets for codepoints in this range.
     #[allow(dead_code)]
     pub fn mss(&self) -> &[InplacePtrVec<MJMapping, 4>] {
         unsafe { self.mss.as_ref() }
     }
 
+    /// Returns the MJ mappings for the codepoint at offset `o` from the range start.
     pub fn mj(&self, o: u32) -> Option<&[&MJMapping]> {
         unsafe {
             self.mss
@@ -68,6 +78,7 @@ impl URangeToMJMappings {
     }
 }
 
+/// Unicode codepoint sets for each MJ shrink scheme, associated with a single MJ code.
 #[derive(Clone, Debug)]
 pub struct MJShrinkMappingUnicodeSet {
     pub(crate) jis_incorporation_ucs_unification_rule: NonNull<[u32]>,
@@ -77,26 +88,31 @@ pub struct MJShrinkMappingUnicodeSet {
 }
 
 impl MJShrinkMappingUnicodeSet {
+    /// Returns candidates from the JIS incorporation and UCS unification rule scheme.
     #[allow(dead_code)]
     pub fn jis_incorporation_ucs_unification_rule(&self) -> &[u32] {
         unsafe { self.jis_incorporation_ucs_unification_rule.as_ref() }
     }
 
+    /// Returns candidates from the inference by reading and glyph scheme.
     #[allow(dead_code)]
     pub fn inference_by_reading_and_glyph(&self) -> &[u32] {
         unsafe { self.inference_by_reading_and_glyph.as_ref() }
     }
 
+    /// Returns candidates from the MOJ Notice 582 scheme.
     #[allow(dead_code)]
     pub fn moj_notice_582(&self) -> &[u32] {
         unsafe { self.moj_notice_582.as_ref() }
     }
 
+    /// Returns candidates from the MOJ Family Register Act related notice scheme.
     #[allow(dead_code)]
     pub fn moj_family_register_act_related_notice(&self) -> &[u32] {
         unsafe { self.moj_family_register_act_related_notice.as_ref() }
     }
 
+    /// Returns `true` if any scheme has at least one candidate.
     pub fn is_valid(&self) -> bool {
         !self.jis_incorporation_ucs_unification_rule().is_empty()
             || !self.inference_by_reading_and_glyph().is_empty()
@@ -105,6 +121,7 @@ impl MJShrinkMappingUnicodeSet {
     }
 }
 
+/// An MJ shrink mapping entry associating an MJ code with its shrink candidate sets.
 #[derive(Clone, Debug)]
 pub struct MJShrinkMapping {
     pub(crate) mj: MJCode,
@@ -112,17 +129,20 @@ pub struct MJShrinkMapping {
 }
 
 impl MJShrinkMapping {
+    /// Returns the MJ code.
     #[allow(dead_code)]
     pub fn mj(&self) -> MJCode {
         self.mj
     }
 
+    /// Returns the shrink candidate Unicode sets.
     #[allow(dead_code)]
     pub fn us(&self) -> &MJShrinkMappingUnicodeSet {
         &self.us
     }
 }
 
+/// The complete in-memory conversion dataset, containing all JNTA and MJ mapping tables.
 #[derive(Clone, Debug)]
 pub struct ConversionData {
     pub(crate) jnta_mappings: Pin<Box<[JNTAMapping]>>,
@@ -249,6 +269,7 @@ impl From<super::inwire_models::ConversionData> for Box<ConversionData> {
 }
 
 impl ConversionData {
+    /// Looks up the JNTA mapping for a Unicode codepoint.
     pub fn lookup_jnta_mapping(&self, u: u32) -> Option<&JNTAMapping> {
         let (m, o) = match self
             .urange_to_jis_mappings
@@ -275,6 +296,7 @@ impl ConversionData {
         m.jis()[o as usize]
     }
 
+    /// Looks up the MJ mappings for a Unicode codepoint.
     pub fn lookup_mj_mapping(&self, u: u32) -> Option<&[&MJMapping]> {
         let (m, o) = match self
             .urange_to_mj_mappings
@@ -301,6 +323,7 @@ impl ConversionData {
         m.mj(o)
     }
 
+    /// Looks up the MJ shrink mapping for an MJ code.
     pub fn lookup_mj_shrink_mapping(&self, m: MJCode) -> Option<&MJShrinkMapping> {
         let i = u32::from(m) as usize;
         if i >= self.mj_shrink_mappings.len() {
@@ -309,6 +332,7 @@ impl ConversionData {
         Some(&self.mj_shrink_mappings[i])
     }
 
+    /// Looks up all MJ shrink mappings associated with a Unicode codepoint.
     pub fn lookup_mj_shrink_mapping_by_unicode(&self, u: u32) -> Option<Vec<&MJShrinkMapping>> {
         self.lookup_mj_mapping(u).and_then(|m| {
             if m.is_empty() {

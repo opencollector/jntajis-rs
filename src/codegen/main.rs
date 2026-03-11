@@ -7,7 +7,7 @@ use serde::Deserialize;
 
 use calamine::{DataType as _, Reader as _, Xlsx, open_workbook};
 
-use jntajis::codec::array_vec::ArrayVec;
+use jntajis::array_vec::ArrayVec;
 use jntajis::codec::common_models::{
     Ivs, JISCharacterClass, JNTAMapping, MJCode, MenKuTen, UIVSPair,
 };
