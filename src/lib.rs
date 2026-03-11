@@ -102,10 +102,11 @@
 //! - **Source:** <https://moji.or.jp/mojikiban/map/>
 //! - **License:** CC BY-SA 2.1 JP
 
+pub mod array_vec;
 pub mod codec;
 
 // Re-export the new public API
-pub use codec::conversion_mode::ConversionMode;
+pub use codec::ConversionMode;
 pub use codec::decoder::{Decoder, jnta_decode};
 pub use codec::encoder::{Encoder, jnta_encode};
 pub use codec::error::{DecoderResult, EncoderResult, TransliterationError};

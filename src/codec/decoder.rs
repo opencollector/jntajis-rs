@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use super::ConversionMode;
 use super::common_models::JISCharacterClass;
-use super::conversion_mode::ConversionMode;
 use super::error::DecoderResult;
 use super::inmemory_models::ConversionData;
 

@@ -1,8 +1,13 @@
+//! Stack-allocated vector types with sentinel-based and length-based variants.
+
 use std::mem::MaybeUninit;
 
-use super::invalid_value::{DefaultValueValidity, ValueValidity};
+pub mod invalid_value;
+
+use invalid_value::{DefaultValueValidity, ValueValidity};
 use serde::{Deserialize, Serialize};
 
+/// Iterator over references to valid elements in an [`ArrayVec`].
 pub struct PtrIter<
     'a,
     T: Copy + PartialEq,
@@ -17,6 +22,7 @@ pub struct PtrIter<
 impl<'a, T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>>
     PtrIter<'a, T, CAP, V>
 {
+    /// Creates a new iterator over the given array.
     #[inline]
     pub fn new(array: &'a [T; CAP]) -> Self {
         Self {
@@ -46,6 +52,11 @@ impl<'a, T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> It
     }
 }
 
+/// Fixed-capacity vector backed by an array, using a sentinel value to mark empty slots.
+///
+/// Unlike [`ArrayVecWithLen`], this type does not store an explicit length. Instead, it
+/// uses a [`ValueValidity`] strategy to distinguish occupied slots from empty ones.
+/// This makes it suitable for types that have a natural "invalid" value (e.g., `u32::MAX`).
 #[derive(Clone, Debug, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct ArrayVec<
     T: Copy + PartialEq,
@@ -57,6 +68,7 @@ pub struct ArrayVec<
 }
 
 impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayVec<T, CAP, V> {
+    /// Creates an empty `ArrayVec` filled with invalid sentinel values.
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -65,6 +77,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         }
     }
 
+    /// Creates an `ArrayVec` from a fixed-size array. Returns an error if `CAP2 > CAP`.
     #[inline]
     pub fn from_array<const CAP2: usize>(
         array: &[T; CAP2],
@@ -80,6 +93,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         Ok(self_)
     }
 
+    /// Creates an `ArrayVec` from a slice. Returns an error if the slice exceeds capacity.
     #[inline]
     pub fn from_slice(slice: &[T]) -> Result<Self, ArrayVecConstructionError> {
         if slice.len() > CAP {
@@ -96,6 +110,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         })
     }
 
+    /// Appends a value to the first invalid slot. Panics if all slots are occupied.
     #[inline]
     pub fn push(&mut self, value: T) {
         let mut i = 0;
@@ -112,6 +127,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         );
     }
 
+    /// Returns the number of valid elements, scanning backwards from the end.
     #[inline]
     pub fn len(&self) -> usize {
         let mut i = self.array.len();
@@ -125,11 +141,13 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         i
     }
 
+    /// Returns `true` if there are no valid elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
         !V::is_valid(&self.array[0])
     }
 
+    /// Returns an iterator over references to valid elements.
     #[inline]
     pub fn iter(&self) -> PtrIter<'_, T, CAP, V> {
         PtrIter {
@@ -139,6 +157,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         }
     }
 
+    /// Returns a reference to the element at `index`, or `None` if invalid or out of bounds.
     #[inline]
     pub fn get(&self, index: usize) -> Option<&T> {
         if index < CAP && V::is_valid(&self.array[index]) {
@@ -148,6 +167,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         }
     }
 
+    /// Returns a mutable reference to the element at `index`, or `None` if invalid or out of bounds.
     #[inline]
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index < CAP && V::is_valid(&self.array[index]) {
@@ -157,12 +177,14 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> ArrayV
         }
     }
 
+    /// Returns a slice of the valid elements.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         let len = self.len();
         &self.array[..len]
     }
 
+    /// Returns a mutable slice of the valid elements.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         let len = self.len();
@@ -178,6 +200,7 @@ impl<T: Copy + PartialEq, const CAP: usize, V: ValueValidity<Target = T>> Defaul
     }
 }
 
+/// Error returned when constructing an array-backed vector with too many elements.
 #[derive(Clone, Debug)]
 pub struct ArrayVecConstructionError(String);
 
@@ -322,6 +345,10 @@ impl<T: Copy + PartialEq + Serialize, const CAP: usize, V: ValueValidity<Target 
     }
 }
 
+/// Fixed-capacity vector backed by an array, with an explicit length field.
+///
+/// Unlike [`ArrayVec`], this type stores an explicit `len` and uses `MaybeUninit`
+/// for uninitialized slots. This supports element types that lack a sentinel value.
 #[derive(Clone, Debug)]
 pub struct ArrayVecWithLen<T: Copy, const CAP: usize> {
     len: usize,
@@ -329,6 +356,7 @@ pub struct ArrayVecWithLen<T: Copy, const CAP: usize> {
 }
 
 impl<T: Copy, const CAP: usize> ArrayVecWithLen<T, CAP> {
+    /// Creates an empty `ArrayVecWithLen`.
     #[inline]
     pub fn new() -> Self {
         Self {
@@ -337,6 +365,7 @@ impl<T: Copy, const CAP: usize> ArrayVecWithLen<T, CAP> {
         }
     }
 
+    /// Creates an `ArrayVecWithLen` from a slice. Returns an error if the slice exceeds capacity.
     #[inline]
     pub fn from_slice(slice: &[T]) -> Result<Self, ArrayVecConstructionError> {
         if slice.len() > CAP {
@@ -360,6 +389,7 @@ impl<T: Copy, const CAP: usize> ArrayVecWithLen<T, CAP> {
         })
     }
 
+    /// Appends a value. Panics if capacity is exceeded.
     #[inline]
     pub fn push(&mut self, value: T) {
         if self.len >= CAP {
@@ -372,21 +402,25 @@ impl<T: Copy, const CAP: usize> ArrayVecWithLen<T, CAP> {
         self.len += 1;
     }
 
+    /// Returns the number of elements.
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Returns `true` if the vector contains no elements.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
 
+    /// Returns an iterator over references to the elements.
     #[inline]
     pub fn iter(&self) -> std::slice::Iter<'_, T> {
         self.as_slice().iter()
     }
 
+    /// Returns a reference to the element at `index`, or `None` if out of bounds.
     #[inline]
     pub fn get(&self, index: usize) -> Option<&T> {
         if index < self.len {
@@ -397,6 +431,7 @@ impl<T: Copy, const CAP: usize> ArrayVecWithLen<T, CAP> {
         }
     }
 
+    /// Returns a mutable reference to the element at `index`, or `None` if out of bounds.
     #[inline]
     pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
         if index < self.len {
@@ -407,12 +442,14 @@ impl<T: Copy, const CAP: usize> ArrayVecWithLen<T, CAP> {
         }
     }
 
+    /// Returns a slice of the initialized elements.
     #[inline]
     pub fn as_slice(&self) -> &[T] {
         // SAFETY: elements 0..self.len are initialized by construction.
         unsafe { std::slice::from_raw_parts(self.elts.as_ptr().cast::<T>(), self.len) }
     }
 
+    /// Returns a mutable slice of the initialized elements.
     #[inline]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         // SAFETY: elements 0..self.len are initialized by construction.
@@ -533,6 +570,10 @@ impl<T: Copy + Serialize, const CAP: usize> Serialize for ArrayVecWithLen<T, CAP
     }
 }
 
+/// A compact byte vector that packs up to 4 bytes into a single `u32`.
+///
+/// Bytes are stored in big-endian order within the `u32`, and the length
+/// is derived from the number of leading zero bytes.
 #[derive(Clone, Copy)]
 pub struct PackedU8Vec(u32);
 
@@ -545,11 +586,13 @@ impl Default for PackedU8Vec {
 impl PackedU8Vec {
     const MAX_LEN: usize = std::mem::size_of::<u32>();
 
+    /// Creates an empty `PackedU8Vec`.
     #[inline]
     pub fn new() -> Self {
         Self(0)
     }
 
+    /// Creates a `PackedU8Vec` from a fixed-size array. Returns an error if `SIZE > 4`.
     #[inline]
     pub fn from_array<const SIZE: usize>(
         array: &[u8; SIZE],
@@ -569,6 +612,7 @@ impl PackedU8Vec {
         ));
     }
 
+    /// Creates a `PackedU8Vec` from a byte slice. Returns an error if the slice exceeds 4 bytes.
     #[inline]
     pub fn from_slice(slice: &[u8]) -> Result<Self, ArrayVecConstructionError> {
         if slice.len() > Self::MAX_LEN {
@@ -586,6 +630,7 @@ impl PackedU8Vec {
         ));
     }
 
+    /// Appends a byte. Panics if already at maximum capacity (4 bytes).
     #[inline]
     pub fn push(&mut self, value: u8) {
         if self.0.leading_zeros() < 8 {
@@ -597,16 +642,19 @@ impl PackedU8Vec {
         self.0 = (self.0 << 8) | (value as u32);
     }
 
+    /// Returns the number of stored bytes.
     #[inline]
     pub fn len(&self) -> usize {
         Self::MAX_LEN - (self.0.leading_zeros() / 8) as usize
     }
 
+    /// Returns `true` if no bytes are stored.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.0 == 0
     }
 
+    /// Returns the byte at `index`, or `None` if out of bounds.
     #[inline]
     pub fn get(&self, index: usize) -> Option<u8> {
         let l = self.len();
@@ -616,6 +664,7 @@ impl PackedU8Vec {
         Some((self.0 >> (8 * (l - index - 1))) as u8)
     }
 
+    /// Writes the stored bytes into the given writer. Returns the number of bytes written.
     #[inline]
     pub fn write_into(&self, mut w: impl std::io::Write) -> std::io::Result<usize> {
         let ll = self.0.leading_zeros() / 8;
@@ -644,7 +693,7 @@ impl<const N: usize> TryFrom<[u8; N]> for PackedU8Vec {
 
 #[cfg(test)]
 mod tests {
-    use crate::codec::invalid_value::ZeroValueAsInvalid;
+    use crate::array_vec::invalid_value::ZeroValueAsInvalid;
 
     #[test]
     fn test_arrayvec_len() {

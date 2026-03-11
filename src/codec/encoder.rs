@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
+use super::ConversionMode;
 use super::common_models::{JISCharacterClass, MenKuTen};
-use super::conversion_mode::ConversionMode;
 use super::error::EncoderResult;
 use super::generated::sm_uni_to_jis_mapping;
 use super::inmemory_models::ConversionData;

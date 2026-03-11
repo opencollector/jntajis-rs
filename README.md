@@ -7,7 +7,7 @@ A Rust port of [jntajis-python](https://github.com/opencollector/jntajis-python)
 jntajis-rs is a transliteration library specifically designed for dealing with three different character sets: JIS X 0208, JIS X 0213, and Unicode. This is a native Rust implementation that provides the same functionality as the original Python library.
 
 ```rust
-use jntajis_rs::codec::mj_shrink::{MJShrinkSchemes, mj_shrink_candidates};
+use jntajis::codec::mj_shrink::{MJShrinkSchemes, mj_shrink_candidates};
 
 fn main() {
     // Get shrink candidates for a character variant
@@ -32,13 +32,13 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-jntajis-rs = "0.1.0"
+jntajis = "0.2.0"
 ```
 
 ### Basic Example
 
 ```rust
-use jntajis_rs::codec::mj_shrink::{MJShrinkScheme, MJShrinkSchemes, mj_shrink_candidates};
+use jntajis::codec::mj_shrink::{MJShrinkScheme, MJShrinkSchemes, mj_shrink_candidates};
 
 // Get all possible shrink candidates
 let candidates: Vec<String> = mj_shrink_candidates("髙", MJShrinkSchemes::ALL)

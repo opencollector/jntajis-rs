@@ -1,13 +1,24 @@
 use serde::{Deserialize, Serialize};
 
+/// Trait for determining whether a value is valid or represents a sentinel "invalid" state.
+///
+/// Used by [`ArrayVec`](super::ArrayVec) to distinguish occupied slots from empty ones
+/// without storing an explicit length.
 pub trait ValueValidity {
+    /// The value type being validated.
     type Target;
 
+    /// Returns the sentinel value representing an invalid/empty slot.
     fn invalid_value() -> Self::Target;
 
+    /// Returns `true` if the value is valid (i.e., not the sentinel).
     fn is_valid(value: &Self::Target) -> bool;
 }
 
+/// Default validity strategy that delegates to the inner type's [`ValueValidity`] implementation.
+///
+/// Provides built-in support for `Option<T>` (`None` is invalid), `*const T` and `*mut T`
+/// (null is invalid).
 #[derive(
     Clone, Debug, Deserialize, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
@@ -63,6 +74,7 @@ impl<T> ValueValidity for DefaultValueValidity<*mut T> {
     }
 }
 
+/// Validity strategy that treats the zero (all-bits-zero) value as invalid.
 #[derive(
     Clone, Debug, Deserialize, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
@@ -83,6 +95,7 @@ impl<T: PartialEq> ValueValidity for ZeroValueAsInvalid<T> {
     }
 }
 
+/// Validity strategy that treats the all-bits-set value as invalid.
 #[derive(
     Clone, Debug, Deserialize, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
@@ -102,6 +115,7 @@ impl<T: PartialEq + std::ops::Not<Output = T>> ValueValidity for AllBitsSetValue
     }
 }
 
+/// Validity strategy that treats the [`Default`] value as invalid.
 #[derive(
     Clone, Debug, Deserialize, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]

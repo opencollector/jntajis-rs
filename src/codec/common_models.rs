@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use super::array_vec::ArrayVec;
-use super::invalid_value::{AllBitsSetValueAsInvalid, ValueValidity};
+use crate::array_vec::ArrayVec;
+use crate::array_vec::invalid_value::{AllBitsSetValueAsInvalid, ValueValidity};
 
 #[derive(
     Clone,
@@ -15,6 +15,7 @@ use super::invalid_value::{AllBitsSetValueAsInvalid, ValueValidity};
     rkyv::Serialize,
     rkyv::Deserialize,
 )]
+/// Classification of characters in the JIS character set.
 pub enum JISCharacterClass {
     Reserved = 0,
     KanjiLevel1 = 1,
@@ -26,6 +27,7 @@ pub enum JISCharacterClass {
 }
 
 impl JISCharacterClass {
+    /// Returns `true` if this is a kanji character (level 1-4).
     pub fn is_kanji(&self) -> bool {
         matches!(
             self,
@@ -36,6 +38,7 @@ impl JISCharacterClass {
         )
     }
 
+    /// Returns `true` if this character is defined in JIS X 0208.
     pub fn is_jisx0208(&self) -> bool {
         matches!(
             self,
@@ -45,6 +48,7 @@ impl JISCharacterClass {
         )
     }
 
+    /// Returns `true` if this character is specific to JIS X 0213 (level 3/4 or 0213 non-kanji).
     pub fn is_jisx0213(&self) -> bool {
         matches!(
             self,
@@ -197,6 +201,7 @@ impl From<MJShrinkSchemes> for u8 {
     }
 }
 
+/// Error returned when constructing a [`MenKuTen`] with invalid values.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MenKuTenError(String);
 
@@ -227,11 +232,16 @@ impl std::error::Error for MenKuTenError {}
     rkyv::Serialize,
     rkyv::Deserialize,
 )]
+/// A packed men-ku-ten (面-区-点) code identifying a character in JIS X 0208/0213.
+///
+/// The code is packed into a `u16` as `(men-1)*94*94 + (ku-1)*94 + (ten-1)`.
 pub struct MenKuTen(pub u16);
 
 impl MenKuTen {
+    /// Sentinel value representing an invalid/absent men-ku-ten code.
     pub const INVALID: MenKuTen = MenKuTen(u16::MAX);
 
+    /// Creates a new `MenKuTen` from men (1-2), ku (1-94), and ten (1-94).
     pub fn new(men: u8, ku: u8, ten: u8) -> Result<Self, MenKuTenError> {
         if !(1..=2).contains(&men) {
             return Err(MenKuTenError(format!("invalid men value: {}", men)));
@@ -247,14 +257,17 @@ impl MenKuTen {
         ))
     }
 
+    /// Returns the men (plane) number (1 or 2).
     pub fn men(&self) -> u8 {
         (self.0 / (94 * 94) + 1) as u8
     }
 
+    /// Returns the ku (row) number (1-94).
     pub fn ku(&self) -> u8 {
         (self.0 / 94 % 94 + 1) as u8
     }
 
+    /// Returns the ten (cell) number (1-94).
     pub fn ten(&self) -> u8 {
         (self.0 % 94 + 1) as u8
     }
@@ -313,6 +326,7 @@ impl ValueValidity for MenKuTen {
 #[derive(
     Clone, Debug, Deserialize, Serialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize,
 )]
+/// A JNTA (Japan National Tax Agency) character mapping entry.
 pub struct JNTAMapping {
     /// Packed men-ku-ten code
     pub jis: MenKuTen,
@@ -328,6 +342,7 @@ pub struct JNTAMapping {
     pub tx_us: ArrayVec<u32, 4, AllBitsSetValueAsInvalid<u32>>,
 }
 
+/// Error returned when a codepoint is not a valid Ideographic Variation Selector.
 #[derive(Clone, Debug)]
 pub struct IVSConversionError(u32);
 
@@ -353,9 +368,14 @@ impl std::error::Error for IVSConversionError {}
     rkyv::Serialize,
     rkyv::Deserialize,
 )]
+/// An Ideographic Variation Selector (IVS) index.
+///
+/// Values 0-15 correspond to VS1-VS16 (U+FE00..U+FE0F), and values 16-255
+/// correspond to VS17-VS256 (U+E0100..U+E01EF).
 pub struct Ivs(u8);
 
 impl Ivs {
+    /// Creates a new `Ivs` from a raw index value.
     pub fn new(ivs: u8) -> Self {
         Self(ivs)
     }
@@ -402,11 +422,14 @@ impl From<Ivs> for u32 {
     rkyv::Serialize,
     rkyv::Deserialize,
 )]
+/// An MJ (Moji Joho) character code.
 pub struct MJCode(u32);
 
 impl MJCode {
+    /// Sentinel value representing an invalid/absent MJ code.
     pub const INVALID: MJCode = MJCode(u32::MAX);
 
+    /// Creates a new `MJCode` from a raw numeric value.
     pub fn new(mj: u32) -> Self {
         Self(mj)
     }
@@ -474,8 +497,11 @@ impl ValueValidity for MJCode {
     rkyv::Serialize,
     rkyv::Deserialize,
 )]
+/// A Unicode codepoint paired with an optional Ideographic Variation Selector.
 pub struct UIVSPair {
+    /// Unicode codepoint.
     pub u: u32,
+    /// Optional IVS that disambiguates glyph variants.
     pub s: Option<Ivs>,
 }
 
@@ -496,6 +522,7 @@ impl ValueValidity for UIVSPair {
 
 #[cfg(feature = "codegen")]
 impl MenKuTen {
+    /// Parses a men-ku-ten string in `"M-KK-TT"` format.
     pub fn from_repr(v: impl AsRef<str>) -> Result<Self, MenKuTenError> {
         use lazy_static::lazy_static;
 
@@ -528,6 +555,7 @@ impl MenKuTen {
     }
 }
 
+/// Error returned when parsing an MJ code string representation fails.
 #[derive(Debug)]
 #[cfg(feature = "codegen")]
 pub struct MJCodeParseError(String);
@@ -544,6 +572,7 @@ impl std::error::Error for MJCodeParseError {}
 
 #[cfg(feature = "codegen")]
 impl MJCode {
+    /// Parses an MJ code string in `"MJ######"` format.
     pub fn from_repr(v: impl AsRef<str>) -> Result<Self, MJCodeParseError> {
         use lazy_static::lazy_static;
 
