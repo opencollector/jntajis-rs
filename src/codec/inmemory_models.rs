@@ -293,7 +293,11 @@ impl ConversionData {
                 (m, u - m.start)
             }
         };
-        m.jis()[o as usize]
+        let jis = m.jis();
+        if (o as usize) >= jis.len() {
+            return None;
+        }
+        jis[o as usize]
     }
 
     /// Looks up the MJ mappings for a Unicode codepoint.
