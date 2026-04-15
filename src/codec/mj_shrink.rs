@@ -124,7 +124,7 @@ impl MJShrinkCandidates {
                     {
                         for &uu in sm.us.jis_incorporation_ucs_unification_rule() {
                             if uu == u && iv.is_none() {
-                                continue;
+                                break;
                             }
                             if !local_candidates.iter().any(|c| c.u == uu && c.s.is_none()) {
                                 local_candidates.push(UIVSPair { u: uu, s: None });
@@ -137,7 +137,7 @@ impl MJShrinkCandidates {
                     {
                         for &uu in sm.us.inference_by_reading_and_glyph() {
                             if uu == u && iv.is_none() {
-                                continue;
+                                break;
                             }
                             if !local_candidates.iter().any(|c| c.u == uu && c.s.is_none()) {
                                 local_candidates.push(UIVSPair { u: uu, s: None });
@@ -147,7 +147,7 @@ impl MJShrinkCandidates {
                     if self.schemes.contains(MJShrinkScheme::MOJNotice582) {
                         for &uu in sm.us.moj_notice_582() {
                             if uu == u && iv.is_none() {
-                                continue;
+                                break;
                             }
                             if !local_candidates.iter().any(|c| c.u == uu && c.s.is_none()) {
                                 local_candidates.push(UIVSPair { u: uu, s: None });
@@ -160,7 +160,7 @@ impl MJShrinkCandidates {
                     {
                         for &uu in sm.us.moj_family_register_act_related_notice() {
                             if uu == u && iv.is_none() {
-                                continue;
+                                break;
                             }
                             if !local_candidates.iter().any(|c| c.u == uu && c.s.is_none()) {
                                 local_candidates.push(UIVSPair { u: uu, s: None });
@@ -325,6 +325,39 @@ mod tests {
         // Should return multiple candidates
         assert!(!results.is_empty());
         assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_mj_shrink_kiri_kou_scheme_separation() {
+        // 切 (U+5207) / 功 (U+529F) pair: should only appear together under scheme 4
+        // (MOJNotice582), not under scheme 8 (MOJFamilyRegisterActRelatedNotice).
+        let scheme4 = MJShrinkSchemes::builder().with(MJShrinkScheme::MOJNotice582);
+        let scheme8 =
+            MJShrinkSchemes::builder().with(MJShrinkScheme::MOJFamilyRegisterActRelatedNotice);
+
+        let kiri_scheme4: Vec<String> = mj_shrink_candidates("切", scheme4).collect();
+        let kiri_scheme8: Vec<String> = mj_shrink_candidates("切", scheme8).collect();
+        let kou_scheme8: Vec<String> = mj_shrink_candidates("功", scheme8).collect();
+
+        // Under scheme 4, 切 should map to both 切 and 功
+        assert!(
+            kiri_scheme4.iter().any(|s| s == "功"),
+            "切 should include 功 under scheme 4, got: {kiri_scheme4:?}"
+        );
+        // Under scheme 8, 切 should only return itself (no 功)
+        assert!(
+            !kiri_scheme8.iter().any(|s| s == "功"),
+            "切 should not include 功 under scheme 8, got: {kiri_scheme8:?}"
+        );
+        assert!(
+            kiri_scheme8.iter().any(|s| s == "切"),
+            "切 should include itself under scheme 8, got: {kiri_scheme8:?}"
+        );
+        // Under scheme 8, 功 should include 切 (the reverse mapping)
+        assert!(
+            kou_scheme8.iter().any(|s| s == "切"),
+            "功 should include 切 under scheme 8, got: {kou_scheme8:?}"
+        );
     }
 
     #[test]
