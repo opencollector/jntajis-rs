@@ -475,10 +475,13 @@ fn read_mj_shrink_file(
     fn parse_uni_repr_set<'a>(
         codesets: impl IntoIterator<Item = &'a MJFileCodeSet>,
     ) -> Result<Vec<u32>, UnicodeReprParseError> {
-        codesets
+        let mut v: Vec<u32> = codesets
             .into_iter()
             .map(|cs| parse_uni_repr(&cs.ucs))
-            .collect::<Result<Vec<_>, _>>()
+            .collect::<Result<Vec<_>, _>>()?;
+        v.sort_unstable();
+        v.dedup();
+        Ok(v)
     }
 
     let mut data: MJFile = serde_json::from_reader(BufReader::new(File::open(src)?))?;
